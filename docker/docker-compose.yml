@@ -1,0 +1,22 @@
+services:
+
+  api:
+
+    build: ../backend
+
+    container_name: aegis-api
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ../backend:/app
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    environment:
+      OLLAMA_HOST: http://host.docker.internal:11434
+      MODEL_NAME: qwen2.5:7b
+
+    restart: unless-stopped
