@@ -1,6 +1,3 @@
-from typing import Any
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -8,14 +5,10 @@ class TaskPlan(BaseModel):
 
     tool: str
 
-    action: Optional[str] = None
+    action: str
 
-    command: Optional[str] = None
+    target: str = ""
 
-    path: Optional[str] = None
+    payload: dict = {}
 
-    query: Optional[str] = None
-
-    code: Optional[str] = None
-
-    arguments: dict[str, Any] = {}
+    reason: str = ""

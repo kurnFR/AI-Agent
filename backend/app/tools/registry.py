@@ -1,21 +1,36 @@
+from app.tools.shell.tool import ShellTool
+from app.tools.filesystem.tool import FileSystemTool
+from app.tools.python.tool import PythonTool
+from app.tools.postgres.tool import PostgresTool
+
+from app.config import DATABASE_URL
+
+
 class ToolRegistry:
 
     def __init__(self):
 
-        self._tools = {}
+        self.tools = {}
+
+        self.register(ShellTool())
+        self.register(FileSystemTool())
+        self.register(PythonTool())
+        self.register(
+            PostgresTool(DATABASE_URL)
+        )
 
     def register(self, tool):
 
-        self._tools[tool.name] = tool
+        self.tools[tool.name] = tool
 
     def get(self, name):
 
-        return self._tools.get(name)
+        return self.tools.get(name)
 
-    def list(self):
+    def exists(self, name):
 
-        return list(self._tools.values())
+        return name in self.tools
 
     def names(self):
 
-        return sorted(self._tools.keys())
+        return sorted(self.tools.keys())

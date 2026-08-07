@@ -1,11 +1,10 @@
 import subprocess
 
-from app.schemas.task_plan import TaskPlan
+from app.execution.result import ExecutionResult
 from app.security.command_validator import CommandValidator
-from app.tools.base.tool import BaseTool
 
 
-class ShellTool(BaseTool):
+class ShellTool:
 
     name = "shell"
 
@@ -13,12 +12,20 @@ class ShellTool(BaseTool):
 
         self.validator = CommandValidator()
 
-    def execute(self, plan: TaskPlan):
+    def execute(self, plan):
 
-        command = plan.command
+        command = plan.target
 
-        if not self.validator.validate(command):
-            raise Exception("Command is not allowed.")
+        valid = self.validator.validate(command)
+
+        if not valid:
+
+            return ExecutionResult(
+                success=False,
+                tool=self.name,
+                output=None,
+                error="Command is blocked."
+            )
 
         result = subprocess.run(
             command,
@@ -27,8 +34,13 @@ class ShellTool(BaseTool):
             text=True
         )
 
-        return {
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "code": result.returncode
-        }
+        return ExecutionResult(
+            success=result.returncode == 0,
+            tool=self.name,
+            output={
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "code": result.returncode
+            },
+            error=None if result.returncode == 0 else result.stderr
+        )

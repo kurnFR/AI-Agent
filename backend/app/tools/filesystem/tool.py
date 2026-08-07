@@ -1,27 +1,55 @@
 from pathlib import Path
 
-from app.schemas.task_plan import TaskPlan
-from app.tools.base.tool import BaseTool
+from app.execution.result import ExecutionResult
 
 
-class FileSystemTool(BaseTool):
+class FileSystemTool:
 
     name = "filesystem"
 
-    def execute(self, plan: TaskPlan):
+    def execute(self, plan):
 
-        action = plan.action
-        path = Path(plan.path)
+        path = Path(plan.target)
 
-        if action == "list":
+        if plan.action == "list":
 
-            return sorted(
-                x.name
-                for x in path.iterdir()
+            if not path.exists():
+                return ExecutionResult(
+                    success=False,
+                    tool=self.name,
+                    output=None,
+                    error=f"{path} not found."
+                )
+
+            return ExecutionResult(
+                success=True,
+                tool=self.name,
+                output=sorted(
+                    p.name for p in path.iterdir()
+                ),
+                error=None
             )
 
-        if action == "read":
+        if plan.action == "read":
 
-            return path.read_text()
+            if not path.exists():
+                return ExecutionResult(
+                    success=False,
+                    tool=self.name,
+                    output=None,
+                    error=f"{path} not found."
+                )
 
-        raise Exception(f"Unknown filesystem action '{action}'.")
+            return ExecutionResult(
+                success=True,
+                tool=self.name,
+                output=path.read_text(),
+                error=None
+            )
+
+        return ExecutionResult(
+            success=False,
+            tool=self.name,
+            output=None,
+            error=f"Unknown action '{plan.action}'."
+        )

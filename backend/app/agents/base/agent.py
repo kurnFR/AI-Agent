@@ -1,5 +1,4 @@
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from app.services.llm_service import LLMService
 
@@ -13,14 +12,16 @@ class BaseAgent(ABC):
         self.llm = LLMService()
 
     @abstractmethod
-    def build_prompt(self, message: str) -> str:
+    def build_prompt(self, message):
+
         pass
 
     @abstractmethod
-    def parse_response(self, response: str):
+    def parse_response(self, response):
+
         pass
 
-    def plan(self, message: str):
+    def plan(self, message):
 
         prompt = self.build_prompt(message)
 

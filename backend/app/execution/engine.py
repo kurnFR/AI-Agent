@@ -16,23 +16,19 @@ class ExecutionEngine:
             return ExecutionResult(
                 success=False,
                 tool=plan.tool,
+                output=None,
                 error=f"Tool '{plan.tool}' not found."
             )
 
         try:
 
-            output = tool.execute(plan)
-
-            return ExecutionResult(
-                success=True,
-                tool=plan.tool,
-                output=output
-            )
+            return tool.execute(plan)
 
         except Exception as ex:
 
             return ExecutionResult(
                 success=False,
                 tool=plan.tool,
+                output=None,
                 error=str(ex)
             )

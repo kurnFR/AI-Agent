@@ -1,7 +1,7 @@
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 from app.schemas.task_plan import TaskPlan
+from app.execution.result import ExecutionResult
 
 
 class BaseTool(ABC):
@@ -9,6 +9,8 @@ class BaseTool(ABC):
     name = ""
 
     @abstractmethod
-    def execute(self, plan: TaskPlan):
+    def execute(
+        self,
+        plan: TaskPlan
+    ) -> ExecutionResult:
         pass
-

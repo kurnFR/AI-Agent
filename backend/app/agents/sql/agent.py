@@ -1,16 +1,17 @@
 import json
 
 from app.agents.base.agent import BaseAgent
+from app.schemas.task_plan import TaskPlan
 
 
 class SQLAgent(BaseAgent):
 
     name = "sql"
 
-    def build_prompt(self, message: str):
+    def build_prompt(self, message):
 
         return f"""
-You are a senior SQL engineer.
+You are a senior SQL expert.
 
 Return ONLY JSON.
 
@@ -18,8 +19,12 @@ Example:
 
 {{
     "tool":"postgres",
-    "query":"SELECT * FROM customer",
-    "reason":"Execute SQL"
+    "action":"query",
+    "target":"default",
+    "payload":{{
+        "sql":"SELECT * FROM customer"
+    }},
+    "reason":"Execute SQL query"
 }}
 
 User:
@@ -27,7 +32,7 @@ User:
 {message}
 """
 
-    def parse_response(self, response: str):
+    def parse_response(self, response):
 
         response = response.strip()
 
@@ -36,4 +41,12 @@ User:
             response = response.replace("```", "")
             response = response.strip()
 
-        return json.loads(response)
+        plan = json.loads(response)
+
+        return TaskPlan(
+            tool=plan["tool"],
+            action=plan["action"],
+            target=plan.get("target", ""),
+            payload=plan.get("payload", {}),
+            reason=plan.get("reason", "")
+        )

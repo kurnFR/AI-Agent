@@ -4,25 +4,27 @@ from app.agents.base.agent import BaseAgent
 from app.schemas.task_plan import TaskPlan
 
 
-class LinuxAgent(BaseAgent):
+class PythonAgent(BaseAgent):
 
-    name = "linux"
+    name = "python"
 
     def build_prompt(self, message):
 
         return f"""
-You are a senior Linux administrator.
+You are a senior Python developer.
 
 Return ONLY JSON.
 
 Example:
 
 {{
-    "tool":"shell",
+    "tool":"python",
     "action":"execute",
-    "target":"pwd",
-    "payload":{{}},
-    "reason":"Show current directory"
+    "target":"",
+    "payload":{{
+        "code":"print('hello')"
+    }},
+    "reason":"Execute Python code"
 }}
 
 User:

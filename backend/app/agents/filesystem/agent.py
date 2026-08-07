@@ -4,25 +4,25 @@ from app.agents.base.agent import BaseAgent
 from app.schemas.task_plan import TaskPlan
 
 
-class LinuxAgent(BaseAgent):
+class FileSystemAgent(BaseAgent):
 
-    name = "linux"
+    name = "filesystem"
 
     def build_prompt(self, message):
 
         return f"""
-You are a senior Linux administrator.
+You are a filesystem expert.
 
 Return ONLY JSON.
 
 Example:
 
 {{
-    "tool":"shell",
-    "action":"execute",
-    "target":"pwd",
+    "tool":"filesystem",
+    "action":"list",
+    "target":"/app",
     "payload":{{}},
-    "reason":"Show current directory"
+    "reason":"List application directory"
 }}
 
 User:
