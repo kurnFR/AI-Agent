@@ -1,6 +1,9 @@
-from sqlalchemy import create_engine
 from sqlalchemy import text
 
+import app.settings
+import os
+
+from app.database.factory import manager
 from app.execution.result import ExecutionResult
 from app.tools.base.tool import BaseTool
 
@@ -9,12 +12,9 @@ class PostgresTool(BaseTool):
 
     name = "postgres"
 
-    def __init__(self, connection_string: str):
+    def __init__(self):
 
-        self.engine = create_engine(
-            connection_string,
-            pool_pre_ping=True
-        )
+        self.engine = manager.engine("postgres")
 
     def execute(self, plan):
 
