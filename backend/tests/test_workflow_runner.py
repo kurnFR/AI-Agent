@@ -20,18 +20,32 @@ class FakeTool:
         )
 
 
+class FakeFailingTool:
+
+    name = "fake-failing"
+
+    def execute(self, plan):
+
+        return ExecutionResult(
+            success=False,
+            tool=self.name,
+            output=None,
+            error="Fake execution failed"
+        )
+
+
 class FakeRegistry:
 
     def __init__(self):
 
-        self.tool = FakeTool()
+        self.tools = {
+            "fake": FakeTool(),
+            "fake-failing": FakeFailingTool()
+        }
 
     def get(self, name):
 
-        if name == self.tool.name:
-            return self.tool
-
-        return None
+        return self.tools.get(name)
 
 
 task1 = Task(
@@ -44,13 +58,11 @@ task2 = Task(
     description="Second task"
 )
 
-
 workflow = Workflow(
     id="workflow-001",
     name="Test workflow",
     tasks=[task1, task2]
 )
-
 
 plan1 = TaskPlan(
     tool="fake",
@@ -84,11 +96,46 @@ assert results[0].error is None
 assert results[0].metadata["tool"] == "fake"
 assert results[0].metadata["action"] == "execute"
 
+assert task1.status == "completed"
+
 
 assert results[1].task_id == "task-002"
 assert results[1].success is True
 assert results[1].output == "executed: second"
 assert results[1].error is None
+
+assert task2.status == "completed"
+
+
+failed_task = Task(
+    id="task-003",
+    description="Failing task"
+)
+
+failed_workflow = Workflow(
+    id="workflow-002",
+    name="Failing workflow",
+    tasks=[failed_task]
+)
+
+failed_plan = TaskPlan(
+    tool="fake-failing",
+    action="execute",
+    target="failure"
+)
+
+failed_results = runner.execute(
+    failed_workflow,
+    [failed_plan]
+)
+
+assert len(failed_results) == 1
+
+assert failed_results[0].success is False
+assert failed_results[0].output is None
+assert failed_results[0].error == "Fake execution failed"
+
+assert failed_task.status == "failed"
 
 
 print("=" * 60)
@@ -97,6 +144,17 @@ print("=" * 60)
 
 for result in results:
     print(result)
+
+print()
+
+print("FAILED TASK:")
+print(failed_results[0])
+
+print()
+
+print("TASK 001 STATUS:", task1.status)
+print("TASK 002 STATUS:", task2.status)
+print("TASK 003 STATUS:", failed_task.status)
 
 print("=" * 60)
 print("WORKFLOW RUNNER TEST PASSED")
