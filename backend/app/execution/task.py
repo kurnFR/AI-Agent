@@ -14,6 +14,8 @@ class Task(BaseModel):
 
     metadata: dict = Field(default_factory=dict)
 
+    depends_on: list[str] = Field(default_factory=list)
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

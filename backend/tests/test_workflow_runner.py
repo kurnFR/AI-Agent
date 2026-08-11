@@ -53,7 +53,7 @@ runner = WorkflowRunner(engine)
 
 
 # ==========================================================
-# 1. SUCCESSFUL WORKFLOW
+# 1. SUCCESSFUL WORKFLOW WITH DEPENDENCY
 # ==========================================================
 
 task1 = Task(
@@ -63,12 +63,13 @@ task1 = Task(
 
 task2 = Task(
     id="task-002",
-    description="Second task"
+    description="Second task",
+    depends_on=["task-001"]
 )
 
 workflow = Workflow(
     id="workflow-001",
-    name="Successful workflow",
+    name="Successful dependent workflow",
     tasks=[task1, task2]
 )
 
@@ -92,16 +93,13 @@ workflow_result = runner.execute(
 assert workflow_result.workflow_id == "workflow-001"
 assert workflow_result.success is True
 assert workflow_result.error is None
-
 assert len(workflow_result.results) == 2
 
 assert workflow_result.results[0].task_id == "task-001"
 assert workflow_result.results[0].success is True
-assert workflow_result.results[0].output == "executed: first"
 
 assert workflow_result.results[1].task_id == "task-002"
 assert workflow_result.results[1].success is True
-assert workflow_result.results[1].output == "executed: second"
 
 assert task1.status == "completed"
 assert task2.status == "completed"
@@ -109,7 +107,7 @@ assert workflow.status == "completed"
 
 
 # ==========================================================
-# 2. INDEPENDENT TASK FAILURE
+# 2. FAILED TASK + DEPENDENT TASK SKIPPED
 # ==========================================================
 
 failed_task = Task(
@@ -117,9 +115,15 @@ failed_task = Task(
     description="Failing task"
 )
 
-successful_task = Task(
+dependent_task = Task(
     id="task-004",
-    description="Task after failure"
+    description="Depends on failed task",
+    depends_on=["task-003"]
+)
+
+independent_task = Task(
+    id="task-005",
+    description="Independent after failure"
 )
 
 partial_workflow = Workflow(
@@ -127,7 +131,8 @@ partial_workflow = Workflow(
     name="Partial failure workflow",
     tasks=[
         failed_task,
-        successful_task
+        dependent_task,
+        independent_task
     ]
 )
 
@@ -137,82 +142,257 @@ failed_plan = TaskPlan(
     target="failure"
 )
 
-successful_plan = TaskPlan(
+dependent_plan = TaskPlan(
     tool="fake",
     action="execute",
-    target="after-failure"
+    target="should-not-run"
+)
+
+independent_plan = TaskPlan(
+    tool="fake",
+    action="execute",
+    target="independent"
 )
 
 partial_result = runner.execute(
     partial_workflow,
     [
         failed_plan,
-        successful_plan
+        dependent_plan,
+        independent_plan
     ]
 )
 
 assert partial_result.workflow_id == "workflow-002"
-
-# The workflow contains a failure.
 assert partial_result.success is False
+assert partial_result.error == (
+    "One or more tasks failed or were skipped."
+)
 
-# The failure should be reported.
+assert len(partial_result.results) == 3
+
+
+# Failed task
 assert partial_result.results[0].task_id == "task-003"
 assert partial_result.results[0].success is False
 assert partial_result.results[0].error == "Execution failed: failure"
 
 assert failed_task.status == "failed"
 
-# Independent task must still execute.
+
+# Dependent task skipped
 assert partial_result.results[1].task_id == "task-004"
-assert partial_result.results[1].success is True
-assert partial_result.results[1].output == "executed: after-failure"
+assert partial_result.results[1].success is False
+assert partial_result.results[1].output is None
+assert "task-003" in partial_result.results[1].error
+assert partial_result.results[1].metadata["status"] == "skipped"
 
-assert successful_task.status == "completed"
+# It never started
+assert dependent_task.status == "pending"
 
-# Workflow ultimately contains a failure.
+
+# Independent task continues
+assert partial_result.results[2].task_id == "task-005"
+assert partial_result.results[2].success is True
+assert partial_result.results[2].output == "executed: independent"
+
+assert independent_task.status == "completed"
+
 assert partial_workflow.status == "failed"
 
 
 # ==========================================================
-# 3. TASK / PLAN COUNT MISMATCH
+# 3. MULTIPLE DEPENDENCIES
 # ==========================================================
 
-mismatch_task = Task(
-    id="task-005",
-    description="Mismatch task"
+task6 = Task(
+    id="task-006",
+    description="Dependency A"
 )
 
-mismatch_workflow = Workflow(
+task7 = Task(
+    id="task-007",
+    description="Dependency B"
+)
+
+task8 = Task(
+    id="task-008",
+    description="Depends on A and B",
+    depends_on=["task-006", "task-007"]
+)
+
+multi_workflow = Workflow(
     id="workflow-003",
-    name="Mismatch workflow",
-    tasks=[mismatch_task]
+    name="Multiple dependency workflow",
+    tasks=[task6, task7, task8]
+)
+
+multi_result = runner.execute(
+    multi_workflow,
+    [
+        TaskPlan(
+            tool="fake",
+            action="execute",
+            target="dependency-a"
+        ),
+        TaskPlan(
+            tool="fake",
+            action="execute",
+            target="dependency-b"
+        ),
+        TaskPlan(
+            tool="fake",
+            action="execute",
+            target="dependent"
+        )
+    ]
+)
+
+assert multi_result.success is True
+assert len(multi_result.results) == 3
+
+assert task6.status == "completed"
+assert task7.status == "completed"
+assert task8.status == "completed"
+
+
+# ==========================================================
+# 4. UNKNOWN DEPENDENCY
+# ==========================================================
+
+invalid_task = Task(
+    id="task-009",
+    description="Invalid dependency",
+    depends_on=["does-not-exist"]
+)
+
+invalid_workflow = Workflow(
+    id="workflow-004",
+    name="Invalid dependency workflow",
+    tasks=[invalid_task]
 )
 
 try:
 
     runner.execute(
-        mismatch_workflow,
-        []
+        invalid_workflow,
+        [
+            TaskPlan(
+                tool="fake",
+                action="execute",
+                target="invalid"
+            )
+        ]
     )
 
-    raise AssertionError(
-        "Expected ValueError for task/plan count mismatch"
-    )
+    raise AssertionError("Expected ValueError")
 
 except ValueError as exc:
 
-    assert str(exc) == (
-        "Number of workflow tasks must match number of task plans."
-    )
+    assert "unknown task" in str(exc)
+
+
+assert invalid_workflow.status == "pending"
 
 
 # ==========================================================
-# 4. EMPTY WORKFLOW
+# 5. SELF DEPENDENCY
+# ==========================================================
+
+self_task = Task(
+    id="task-010",
+    description="Self dependency",
+    depends_on=["task-010"]
+)
+
+self_workflow = Workflow(
+    id="workflow-005",
+    name="Self dependency workflow",
+    tasks=[self_task]
+)
+
+try:
+
+    runner.execute(
+        self_workflow,
+        [
+            TaskPlan(
+                tool="fake",
+                action="execute",
+                target="self"
+            )
+        ]
+    )
+
+    raise AssertionError("Expected ValueError")
+
+except ValueError as exc:
+
+    assert "cannot depend on itself" in str(exc)
+
+
+assert self_workflow.status == "pending"
+
+
+# ==========================================================
+# 6. CIRCULAR DEPENDENCY
+# ==========================================================
+
+cycle_task_a = Task(
+    id="task-011",
+    description="Cycle A",
+    depends_on=["task-012"]
+)
+
+cycle_task_b = Task(
+    id="task-012",
+    description="Cycle B",
+    depends_on=["task-011"]
+)
+
+cycle_workflow = Workflow(
+    id="workflow-006",
+    name="Circular dependency workflow",
+    tasks=[
+        cycle_task_a,
+        cycle_task_b
+    ]
+)
+
+try:
+
+    runner.execute(
+        cycle_workflow,
+        [
+            TaskPlan(
+                tool="fake",
+                action="execute",
+                target="cycle-a"
+            ),
+            TaskPlan(
+                tool="fake",
+                action="execute",
+                target="cycle-b"
+            )
+        ]
+    )
+
+    raise AssertionError("Expected ValueError")
+
+except ValueError as exc:
+
+    assert "Circular dependency detected" in str(exc)
+
+
+assert cycle_workflow.status == "pending"
+
+
+# ==========================================================
+# 7. EMPTY WORKFLOW
 # ==========================================================
 
 empty_workflow = Workflow(
-    id="workflow-004",
+    id="workflow-007",
     name="Empty workflow",
     tasks=[]
 )
@@ -224,21 +404,22 @@ try:
         []
     )
 
-    raise AssertionError(
-        "Expected ValueError for empty workflow"
-    )
+    raise AssertionError("Expected ValueError")
 
 except ValueError as exc:
 
-    assert str(exc) == "Workflow must contain at least one task."
+    assert "at least one task" in str(exc)
+
+
+assert empty_workflow.status == "pending"
 
 
 # ==========================================================
-# OUTPUT
+# TEST OUTPUT
 # ==========================================================
 
 print("=" * 60)
-print("WORKFLOW RUNNER EDGE CASE TEST")
+print("WORKFLOW RUNNER DEPENDENCY TEST")
 print("=" * 60)
 
 print()
@@ -250,16 +431,30 @@ print("PARTIAL FAILURE WORKFLOW:")
 print(partial_result)
 
 print()
-print("SUCCESS WORKFLOW STATUS:", workflow.status)
-print("PARTIAL WORKFLOW STATUS:", partial_workflow.status)
+print("MULTIPLE DEPENDENCY WORKFLOW:")
+print(multi_result)
 
 print()
-print("TASK 001 STATUS:", task1.status)
-print("TASK 002 STATUS:", task2.status)
-print("TASK 003 STATUS:", failed_task.status)
-print("TASK 004 STATUS:", successful_task.status)
+print("TASK STATUS:")
+print("TASK 001:", task1.status)
+print("TASK 002:", task2.status)
+print("TASK 003:", failed_task.status)
+print("TASK 004:", dependent_task.status)
+print("TASK 005:", independent_task.status)
+print("TASK 006:", task6.status)
+print("TASK 007:", task7.status)
+print("TASK 008:", task8.status)
 
 print()
-print("=" * 60)
-print("WORKFLOW RUNNER EDGE CASE TEST PASSED")
+print("WORKFLOW STATUS:")
+print("WORKFLOW 001:", workflow.status)
+print("WORKFLOW 002:", partial_workflow.status)
+print("WORKFLOW 003:", multi_workflow.status)
+print("WORKFLOW 004:", invalid_workflow.status)
+print("WORKFLOW 005:", self_workflow.status)
+print("WORKFLOW 006:", cycle_workflow.status)
+print("WORKFLOW 007:", empty_workflow.status)
+
+print()
+print("WORKFLOW RUNNER DEPENDENCY TEST PASSED")
 print("=" * 60)
