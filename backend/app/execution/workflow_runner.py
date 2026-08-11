@@ -29,9 +29,15 @@ class WorkflowRunner:
                 "Number of workflow tasks must match number of task plans."
             )
 
+        if not workflow.tasks:
+            raise ValueError(
+                "Workflow must contain at least one task."
+            )
+
         self.workflow_lifecycle.start(workflow)
 
         results: list[TaskResult] = []
+        has_failure = False
 
         try:
 
@@ -45,17 +51,21 @@ class WorkflowRunner:
                         self.engine.execute(plan)
                     )
 
-                    if execution_result.success:
-                        self.task_lifecycle.complete(task)
-                    else:
-                        self.task_lifecycle.fail(task)
-
                 except Exception:
 
                     if task.status == TaskLifecycle.RUNNING:
                         self.task_lifecycle.fail(task)
 
                     raise
+
+                if execution_result.success:
+
+                    self.task_lifecycle.complete(task)
+
+                else:
+
+                    self.task_lifecycle.fail(task)
+                    has_failure = True
 
                 result = TaskResult(
                     task_id=task.id,
@@ -70,16 +80,16 @@ class WorkflowRunner:
 
                 results.append(result)
 
-                if not execution_result.success:
+            if has_failure:
 
-                    self.workflow_lifecycle.fail(workflow)
+                self.workflow_lifecycle.fail(workflow)
 
-                    return WorkflowResult(
-                        workflow_id=workflow.id,
-                        success=False,
-                        results=results,
-                        error=execution_result.error
-                    )
+                return WorkflowResult(
+                    workflow_id=workflow.id,
+                    success=False,
+                    results=results,
+                    error="One or more tasks failed."
+                )
 
             self.workflow_lifecycle.complete(workflow)
 
