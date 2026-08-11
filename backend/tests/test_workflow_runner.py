@@ -104,6 +104,8 @@ assert results[1].success is True
 assert results[1].output == "executed: second"
 assert results[1].error is None
 
+assert workflow.status == "completed"
+
 assert task2.status == "completed"
 
 
@@ -135,6 +137,8 @@ assert failed_results[0].success is False
 assert failed_results[0].output is None
 assert failed_results[0].error == "Fake execution failed"
 
+assert failed_workflow.status == "failed"
+
 assert failed_task.status == "failed"
 
 
@@ -158,3 +162,7 @@ print("TASK 003 STATUS:", failed_task.status)
 
 print("=" * 60)
 print("WORKFLOW RUNNER TEST PASSED")
+
+print()
+print("SUCCESS WORKFLOW STATUS:", workflow.status)
+print("FAILED WORKFLOW STATUS:", failed_workflow.status)

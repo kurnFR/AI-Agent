@@ -3,6 +3,7 @@ from app.execution.result import ExecutionResult
 from app.execution.task_lifecycle import TaskLifecycle
 from app.execution.task_result import TaskResult
 from app.execution.workflow import Workflow
+from app.execution.workflow_lifecycle import WorkflowLifecycle
 from app.schemas.task_plan import TaskPlan
 
 
@@ -12,6 +13,7 @@ class WorkflowRunner:
 
         self.engine = engine
         self.task_lifecycle = TaskLifecycle()
+        self.workflow_lifecycle = WorkflowLifecycle()
 
     def execute(
         self,
@@ -25,45 +27,65 @@ class WorkflowRunner:
                 "Number of workflow tasks must match number of task plans."
             )
 
+        self.workflow_lifecycle.start(workflow)
+
         results = []
 
-        for task, plan in zip(workflow.tasks, plans):
+        try:
 
-            self.task_lifecycle.start(task)
+            for task, plan in zip(workflow.tasks, plans):
 
-            try:
+                self.task_lifecycle.start(task)
 
-                execution_result: ExecutionResult = (
-                    self.engine.execute(plan)
+                try:
+
+                    execution_result: ExecutionResult = (
+                        self.engine.execute(plan)
+                    )
+
+                    if execution_result.success:
+
+                        self.task_lifecycle.complete(task)
+
+                    else:
+
+                        self.task_lifecycle.fail(task)
+
+                except Exception:
+
+                    if task.status == TaskLifecycle.RUNNING:
+
+                        self.task_lifecycle.fail(task)
+
+                    raise
+
+                result = TaskResult(
+                    task_id=task.id,
+                    success=execution_result.success,
+                    output=execution_result.output,
+                    error=execution_result.error,
+                    metadata={
+                        "tool": execution_result.tool,
+                        "action": plan.action
+                    }
                 )
 
-                if execution_result.success:
+                results.append(result)
 
-                    self.task_lifecycle.complete(task)
+                if not execution_result.success:
 
-                else:
+                    self.workflow_lifecycle.fail(workflow)
 
-                    self.task_lifecycle.fail(task)
+                    return results
 
-            except Exception:
+            self.workflow_lifecycle.complete(workflow)
 
-                if task.status == TaskLifecycle.RUNNING:
+            return results
 
-                    self.task_lifecycle.fail(task)
+        except Exception:
 
-                raise
+            if workflow.status == WorkflowLifecycle.RUNNING:
 
-            result = TaskResult(
-                task_id=task.id,
-                success=execution_result.success,
-                output=execution_result.output,
-                error=execution_result.error,
-                metadata={
-                    "tool": execution_result.tool,
-                    "action": plan.action
-                }
-            )
+                self.workflow_lifecycle.fail(workflow)
 
-            results.append(result)
-
-        return results
+            raise
