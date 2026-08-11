@@ -11,7 +11,6 @@ class FakeTool:
     name = "fake"
 
     def execute(self, plan):
-
         return ExecutionResult(
             success=True,
             tool=self.name,
@@ -25,7 +24,6 @@ class FakeFailingTool:
     name = "fake-failing"
 
     def execute(self, plan):
-
         return ExecutionResult(
             success=False,
             tool=self.name,
@@ -81,32 +79,40 @@ engine = ExecutionEngine(FakeRegistry())
 
 runner = WorkflowRunner(engine)
 
-results = runner.execute(
+
+workflow_result = runner.execute(
     workflow,
     [plan1, plan2]
 )
 
 
-assert len(results) == 2
+assert workflow_result.workflow_id == "workflow-001"
+assert workflow_result.success is True
+assert workflow_result.error is None
 
-assert results[0].task_id == "task-001"
-assert results[0].success is True
-assert results[0].output == "executed: first"
-assert results[0].error is None
-assert results[0].metadata["tool"] == "fake"
-assert results[0].metadata["action"] == "execute"
+assert len(workflow_result.results) == 2
+
+
+assert workflow_result.results[0].task_id == "task-001"
+assert workflow_result.results[0].success is True
+assert workflow_result.results[0].output == "executed: first"
+assert workflow_result.results[0].error is None
+assert workflow_result.results[0].metadata["tool"] == "fake"
+assert workflow_result.results[0].metadata["action"] == "execute"
 
 assert task1.status == "completed"
 
 
-assert results[1].task_id == "task-002"
-assert results[1].success is True
-assert results[1].output == "executed: second"
-assert results[1].error is None
-
-assert workflow.status == "completed"
+assert workflow_result.results[1].task_id == "task-002"
+assert workflow_result.results[1].success is True
+assert workflow_result.results[1].output == "executed: second"
+assert workflow_result.results[1].error is None
+assert workflow_result.results[1].metadata["tool"] == "fake"
+assert workflow_result.results[1].metadata["action"] == "execute"
 
 assert task2.status == "completed"
+
+assert workflow.status == "completed"
 
 
 failed_task = Task(
@@ -126,19 +132,27 @@ failed_plan = TaskPlan(
     target="failure"
 )
 
-failed_results = runner.execute(
+
+failed_result = runner.execute(
     failed_workflow,
     [failed_plan]
 )
 
-assert len(failed_results) == 1
 
-assert failed_results[0].success is False
-assert failed_results[0].output is None
-assert failed_results[0].error == "Fake execution failed"
+assert failed_result.workflow_id == "workflow-002"
+assert failed_result.success is False
+assert failed_result.error == "Fake execution failed"
+
+assert len(failed_result.results) == 1
+
+assert failed_result.results[0].task_id == "task-003"
+assert failed_result.results[0].success is False
+assert failed_result.results[0].output is None
+assert failed_result.results[0].error == "Fake execution failed"
+assert failed_result.results[0].metadata["tool"] == "fake-failing"
+assert failed_result.results[0].metadata["action"] == "execute"
 
 assert failed_workflow.status == "failed"
-
 assert failed_task.status == "failed"
 
 
@@ -146,23 +160,24 @@ print("=" * 60)
 print("WORKFLOW RUNNER TEST")
 print("=" * 60)
 
-for result in results:
-    print(result)
+print()
+print("SUCCESS WORKFLOW RESULT:")
+print(workflow_result)
 
 print()
-
-print("FAILED TASK:")
-print(failed_results[0])
+print("SUCCESS WORKFLOW STATUS:", workflow.status)
 
 print()
+print("FAILED WORKFLOW RESULT:")
+print(failed_result)
 
+print()
+print("FAILED WORKFLOW STATUS:", failed_workflow.status)
+
+print()
 print("TASK 001 STATUS:", task1.status)
 print("TASK 002 STATUS:", task2.status)
 print("TASK 003 STATUS:", failed_task.status)
 
 print("=" * 60)
 print("WORKFLOW RUNNER TEST PASSED")
-
-print()
-print("SUCCESS WORKFLOW STATUS:", workflow.status)
-print("FAILED WORKFLOW STATUS:", failed_workflow.status)
