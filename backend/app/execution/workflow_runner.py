@@ -1,3 +1,5 @@
+from typing import List
+
 from app.execution.engine import ExecutionEngine
 from app.execution.result import ExecutionResult
 from app.execution.task_lifecycle import TaskLifecycle
@@ -18,8 +20,8 @@ class WorkflowRunner:
     def execute(
         self,
         workflow: Workflow,
-        plans: list[TaskPlan]
-    ) -> list[TaskResult]:
+        plans: List[TaskPlan]
+    ) -> List[TaskResult]:
 
         if len(workflow.tasks) != len(plans):
 
