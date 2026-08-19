@@ -1,16 +1,33 @@
 import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-OLLAMA_HOST = os.getenv(
-    "OLLAMA_HOST",
-    "http://host.docker.internal:11434"
+from app.api.router import router as api_router
+from app.config import DATABASE_URL, MODEL_NAME, OLLAMA_HOST
+
+app = FastAPI(
+    title="Aegis AI Agent API",
+    description="Multi-department autonomous AI agent platform with DAG workflow engine",
+    version="0.3.0"
 )
 
-MODEL_NAME = os.getenv(
-    "MODEL_NAME",
-    "qwen2.5:7b"
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg://postgres:postgres@host.docker.internal:5431/postgres"
-)
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "ok",
+        "service": "Aegis AI Agent",
+        "ollama_host": OLLAMA_HOST,
+        "model_name": MODEL_NAME
+    }
+
+
+app.include_router(api_router)

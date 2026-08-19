@@ -1,44 +1,51 @@
+from typing import Dict, List, Optional
+
 from app.ceo.planner import CEOPlanner
+from app.departments.base.department import BaseDepartment
+from app.departments.data.department import DataDepartment
+from app.departments.infrastructure.department import InfrastructureDepartment
+from app.departments.software.department import SoftwareDepartment
 from app.execution.result import ExecutionResult
 
 
 class CEO:
 
-    def __init__(self):
+    def __init__(self, auto_register: bool = True):
 
-        self.departments = {}
-
+        self.departments: Dict[str, BaseDepartment] = {}
         self.planner = CEOPlanner()
 
-    def register(self, department):
+        if auto_register:
+            self.register(InfrastructureDepartment())
+            self.register(DataDepartment())
+            self.register(SoftwareDepartment())
 
-        self.departments[
-            department.name
-        ] = department
+    def register(self, department: BaseDepartment):
 
-    def get_department(self, name):
+        self.departments[department.name] = department
+
+    def get_department(self, name: str) -> Optional[BaseDepartment]:
 
         return self.departments.get(name)
 
-    def department_names(self):
+    def department_names(self) -> List[str]:
 
-        return list(
-            self.departments.keys()
-        )
+        return sorted(list(self.departments.keys()))
 
-    def execute(self, message):
+    def list_departments(self) -> List[str]:
+
+        return self.department_names()
+
+    def list(self) -> List[str]:
+
+        return self.department_names()
+
+    def execute(self, message: str) -> ExecutionResult:
 
         department_plan = self.planner.create_plan(message)
 
-        print("=" * 60)
-        print("CEO PLAN")
-        print(department_plan)
-        print(type(department_plan))
-        print("=" * 60)
-
-        department = self.get_department(
-            department_plan["department"]
-        )
+        dep_name = department_plan.get("department", "software") if isinstance(department_plan, dict) else "software"
+        department = self.get_department(dep_name)
 
         if department is None:
 
@@ -46,7 +53,7 @@ class CEO:
                 success=False,
                 tool="ceo",
                 output=None,
-                error=f"Department '{department_plan['department']}' not found."
+                error=f"Department '{dep_name}' not found."
             )
 
         return department.plan(message)

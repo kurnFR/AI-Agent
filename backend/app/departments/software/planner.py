@@ -1,15 +1,16 @@
-import json
+from typing import Optional
 
+from app.services.json_parser import extract_json
 from app.services.llm_service import LLMService
 
 
 class SoftwarePlanner:
 
-    def __init__(self):
+    def __init__(self, llm: Optional[LLMService] = None):
 
-        self.llm = LLMService()
+        self.llm = llm or LLMService()
 
-    def create_plan(self, message):
+    def create_plan(self, message: str):
 
         prompt = f"""
 You are the Software Manager.
@@ -31,13 +32,13 @@ User:
 {message}
 """
 
-        response = self.llm.ask(prompt)
+        try:
+            response = self.llm.ask(prompt)
+            plan = extract_json(response)
+        except Exception:
+            plan = {}
 
-        response = response.strip()
+        if "agent" not in plan or not plan["agent"]:
+            plan = {"agent": "python"}
 
-        if response.startswith("```"):
-            response = response.replace("```json", "")
-            response = response.replace("```", "")
-            response = response.strip()
-
-        return json.loads(response)
+        return plan

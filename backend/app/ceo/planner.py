@@ -1,13 +1,14 @@
-import json
+from typing import Optional
 
+from app.services.json_parser import extract_json
 from app.services.llm_service import LLMService
 
 
 class CEOPlanner:
 
-    def __init__(self):
+    def __init__(self, llm: Optional[LLMService] = None):
 
-        self.llm = LLMService()
+        self.llm = llm or LLMService()
 
     def create_plan(self, message: str):
 
@@ -71,24 +72,13 @@ User request:
 {message}
 """
 
-        response = self.llm.ask(prompt)
-
-        response = response.strip()
-
-        if response.startswith("```"):
-            response = response.replace("```json", "")
-            response = response.replace("```", "")
-            response = response.strip()
-
         try:
-
-            plan = json.loads(response)
-
+            response = self.llm.ask(prompt)
+            plan = extract_json(response)
         except Exception:
-
             plan = {}
 
-        if "department" not in plan:
+        if "department" not in plan or not plan["department"]:
 
             text = message.lower()
 

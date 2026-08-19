@@ -1,16 +1,17 @@
-import json
+from typing import Optional
 
 from app.planning.planner import BasePlanner
+from app.services.json_parser import extract_json
 from app.services.llm_service import LLMService
 
 
 class CEOPlanner(BasePlanner):
 
-    def __init__(self):
+    def __init__(self, llm: Optional[LLMService] = None):
 
-        self.llm = LLMService()
+        self.llm = llm or LLMService()
 
-    def build_prompt(self, message: str):
+    def build_prompt(self, message: str) -> str:
 
         return f"""
 You are the CEO of an AI company.
@@ -38,19 +39,18 @@ User:
 
     def parse_response(self, response: str):
 
-        response = response.strip()
-
-        if response.startswith("```"):
-            response = response.replace("```json", "")
-            response = response.replace("```", "")
-            response = response.strip()
-
-        return json.loads(response)
+        plan = extract_json(response)
+        if not plan or "department" not in plan:
+            return {"department": "software", "reason": "Default fallback"}
+        return plan
 
     def create_plan(self, message: str):
 
         prompt = self.build_prompt(message)
 
-        response = self.llm.ask(prompt)
+        try:
+            response = self.llm.ask(prompt)
+            return self.parse_response(response)
+        except Exception:
+            return {"department": "software", "reason": "Execution fallback"}
 
-        return self.parse_response(response)

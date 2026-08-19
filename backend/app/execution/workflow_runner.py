@@ -1,4 +1,4 @@
-from __future__ import annotations
+from typing import Dict, List
 
 from app.execution.engine import ExecutionEngine
 from app.execution.result import ExecutionResult
@@ -20,7 +20,7 @@ class WorkflowRunner:
     def execute(
         self,
         workflow: Workflow,
-        plans: list[TaskPlan]
+        plans: List[TaskPlan]
     ) -> WorkflowResult:
 
         if len(workflow.tasks) != len(plans):
@@ -36,13 +36,13 @@ class WorkflowRunner:
         workflow.validate_dependencies()
 
         self.workflow_lifecycle.start(workflow)
-        results: list[TaskResult] = []
+        results: List[TaskResult] = []
 
         # Maps task_id -> TaskResult.
         #
         # This is used to determine whether dependencies completed
         # successfully before allowing a dependent task to execute.
-        task_results: dict[str, TaskResult] = {}
+        task_results: Dict[str, TaskResult] = {}
 
         has_failure = False
 

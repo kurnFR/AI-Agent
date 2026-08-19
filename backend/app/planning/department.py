@@ -1,18 +1,19 @@
-import json
+from typing import List, Optional
 
 from app.planning.planner import BasePlanner
+from app.services.json_parser import extract_json
 from app.services.llm_service import LLMService
 
 
 class DepartmentPlanner(BasePlanner):
 
-    def __init__(self, department: str, agents: list[str]):
+    def __init__(self, department: str, agents: List[str], llm: Optional[LLMService] = None):
 
         self.department = department
         self.agents = agents
-        self.llm = LLMService()
+        self.llm = llm or LLMService()
 
-    def build_prompt(self, message: str):
+    def build_prompt(self, message: str) -> str:
 
         agent_list = "\n".join(f"- {a}" for a in self.agents)
 
@@ -28,8 +29,8 @@ Return ONLY JSON.
 Example:
 
 {{
-    "agent":"sql",
-    "reason":"Need SQL expert"
+    "agent":"{self.agents[0] if self.agents else 'default'}",
+    "reason":"Need expert"
 }}
 
 User:
@@ -39,19 +40,20 @@ User:
 
     def parse_response(self, response: str):
 
-        response = response.strip()
-
-        if response.startswith("```"):
-            response = response.replace("```json", "")
-            response = response.replace("```", "")
-            response = response.strip()
-
-        return json.loads(response)
+        plan = extract_json(response)
+        if not plan or "agent" not in plan:
+            fallback_agent = self.agents[0] if self.agents else "default"
+            return {"agent": fallback_agent, "reason": "Default fallback"}
+        return plan
 
     def create_plan(self, message: str):
 
         prompt = self.build_prompt(message)
 
-        response = self.llm.ask(prompt)
+        try:
+            response = self.llm.ask(prompt)
+            return self.parse_response(response)
+        except Exception:
+            fallback_agent = self.agents[0] if self.agents else "default"
+            return {"agent": fallback_agent, "reason": "Execution fallback"}
 
-        return self.parse_response(response)

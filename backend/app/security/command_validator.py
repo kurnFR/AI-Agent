@@ -1,3 +1,6 @@
+import shlex
+
+
 class CommandValidator:
 
     SAFE_COMMANDS = {
@@ -11,7 +14,11 @@ class CommandValidator:
         "cat",
         "head",
         "tail",
-        "find"
+        "find",
+        "echo",
+        "date",
+        "uptime",
+        "uname"
     }
 
     BLOCKED_COMMANDS = {
@@ -28,20 +35,41 @@ class CommandValidator:
         "kill",
         "killall",
         "sudo",
-        "systemctl"
+        "su",
+        "systemctl",
+        "nc",
+        "netcat",
+        "curl",
+        "wget",
+        "bash",
+        "sh",
+        "zsh"
     }
 
-    def validate(self, command: str):
+    DANGEROUS_OPERATORS = {";", "&", "|", "`", "$", "(", ")", ">", "<"}
 
-        if not command:
+    def validate(self, command: str) -> bool:
+
+        if not command or not isinstance(command, str):
             return False
 
         command = command.strip()
-
         if not command:
             return False
 
-        cmd = command.split()[0]
+        # Reject dangerous shell chaining/substitution characters
+        if any(op in command for op in self.DANGEROUS_OPERATORS):
+            return False
+
+        try:
+            tokens = shlex.split(command)
+        except Exception:
+            return False
+
+        if not tokens:
+            return False
+
+        cmd = tokens[0].strip()
 
         if cmd in self.BLOCKED_COMMANDS:
             return False
@@ -50,3 +78,4 @@ class CommandValidator:
             return False
 
         return True
+

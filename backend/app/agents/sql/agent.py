@@ -1,14 +1,19 @@
-import json
+from typing import Any, Optional
 
 from app.agents.base.agent import BaseAgent
 from app.schemas.task_plan import TaskPlan
+from app.services.json_parser import extract_json
+from app.services.llm_service import LLMService
 
 
 class SQLAgent(BaseAgent):
 
     name = "sql"
 
-    def build_prompt(self, message):
+    def __init__(self, tools_or_registry: Optional[Any] = None, llm: Optional[LLMService] = None):
+        super().__init__(tools_or_registry=tools_or_registry, llm=llm)
+
+    def build_prompt(self, message: str) -> str:
 
         return f"""
 You are a senior SQL expert.
@@ -32,21 +37,23 @@ User:
 {message}
 """
 
-    def parse_response(self, response):
+    def parse_response(self, response: str) -> TaskPlan:
 
-        response = response.strip()
+        plan = extract_json(response)
 
-        if response.startswith("```"):
-            response = response.replace("```json", "")
-            response = response.replace("```", "")
-            response = response.strip()
+        tool = plan.get("tool", "postgres")
+        action = plan.get("action", "query")
+        target = plan.get("target", "default")
+        payload = plan.get("payload", {})
+        if "sql" not in payload and "sql" in plan:
+            payload["sql"] = plan["sql"]
 
-        plan = json.loads(response)
+        reason = plan.get("reason", "Execute SQL query")
 
         return TaskPlan(
-            tool=plan["tool"],
-            action=plan["action"],
-            target=plan.get("target", ""),
-            payload=plan.get("payload", {}),
-            reason=plan.get("reason", "")
+            tool=tool,
+            action=action,
+            target=target,
+            payload=payload,
+            reason=reason
         )

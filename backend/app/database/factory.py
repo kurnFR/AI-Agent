@@ -1,11 +1,13 @@
+from app.config import DATABASE_URL
 from app.database.manager import DatabaseManager
-
-from app.settings.postgres import DATABASE_URL
-
 
 manager = DatabaseManager()
 
-manager.register(
-    "postgres",
-    DATABASE_URL
-)
+try:
+    if DATABASE_URL:
+        manager.register(
+            "postgres",
+            DATABASE_URL
+        )
+except Exception:
+    pass

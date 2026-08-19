@@ -1,17 +1,22 @@
 from app.departments.data.planner import DataPlanner
 
 
-planner = DataPlanner()
+class MockLLM:
+    def ask(self, prompt: str) -> str:
+        return '{"agent":"sql"}'
 
-tests = [
-    "SELECT * FROM customer",
-    "SELECT COUNT(*) FROM sales"
-]
 
-for t in tests:
+def test_data_planner():
+    planner = DataPlanner(llm=MockLLM())
 
-    print("=" * 60)
+    plan = planner.create_plan("SELECT * FROM customer")
+    assert plan["agent"] == "sql"
 
-    print(t)
+    plan2 = planner.create_plan("SELECT COUNT(*) FROM sales")
+    assert plan2["agent"] == "sql"
 
-    print(planner.create_plan(t))
+
+if __name__ == "__main__":
+    test_data_planner()
+    print("test_data_planner: PASS")
+
